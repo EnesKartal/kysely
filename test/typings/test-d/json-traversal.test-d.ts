@@ -91,6 +91,32 @@ async function testJSONReference(db: Kysely<Database>) {
 
   expectType<{ whenever: string | null }>(r10)
 
+  const [r10b] = await db
+    .selectFrom('person_metadata')
+    .select((eb) => [
+      eb.ref('profile', '->').key('auth').key('last_login').as('last_login'),
+      eb
+        .ref('profile', '->')
+        .key('auth')
+        .key('last_login')
+        .$notNull()
+        .as('last_login_not_null'),
+      eb
+        .ref('profile', '->')
+        .key('auth')
+        .key('last_login')
+        .$notNull()
+        .key('device')
+        .as('device'),
+    ])
+    .execute()
+
+  expectType<{
+    last_login: { device: string } | null
+    last_login_not_null: { device: string }
+    device: string
+  }>(r10b)
+
   // `.$castTo()` should support chaining with `.as(...)` #1139
   const [r11] = await db
     .selectFrom('person_metadata')

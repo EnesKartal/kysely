@@ -254,7 +254,7 @@ export class TraversedJSONPathBuilder<S, O>
     return new TraversedJSONPathBuilder(this.#node)
   }
 
-  $notNull(): TraversedJSONPathBuilder<S, Exclude<O, null>> {
+  $notNull(): TraversedJSONPathBuilder<S, NonNullable<O>> {
     return new TraversedJSONPathBuilder(this.#node)
   }
 
@@ -312,4 +312,6 @@ type JSONObjectValueType<
     : // when the object has non-specific keys, e.g. Record<string, T>, should infer `T | null`!
       string extends keyof NonNullable<O>
       ? null | NonNullable<NonNullable<O>[K]>
-      : NonNullable<O>[K]
+      : undefined extends NonNullable<O>[K]
+        ? null | NonNullable<NonNullable<O>[K]>
+        : NonNullable<O>[K]
