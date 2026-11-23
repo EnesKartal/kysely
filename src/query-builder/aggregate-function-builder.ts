@@ -27,7 +27,18 @@ import {
 import type { OrderByInterface } from './order-by-interface.js'
 import { QueryNode } from '../operation-node/query-node.js'
 
-export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
+export type AggregateFunctionModifier =
+  | 'distinct'
+  | 'orderBy'
+  | 'over'
+  | 'noDistinct'
+
+export class AggregateFunctionBuilder<
+  DB,
+  TB extends keyof DB,
+  O = unknown,
+  M extends AggregateFunctionModifier = never,
+>
   implements OrderByInterface<DB, TB, {}>, AliasableExpression<O>
 {
   readonly #props: AggregateFunctionBuilderProps
@@ -38,6 +49,11 @@ export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
 
   /** @private */
   get expressionType(): O | undefined {
+    return undefined
+  }
+
+  /** @private */
+  get modifierType(): M | undefined {
     return undefined
   }
 
@@ -93,7 +109,9 @@ export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
    * from "person"
    * ```
    */
-  distinct(): AggregateFunctionBuilder<DB, TB, O> {
+  distinct(
+    this: AggregateFunctionBuilder<DB, TB, O, Exclude<M, 'over' | 'noDistinct'>>,
+  ): AggregateFunctionBuilder<DB, TB, O, M | 'distinct'> {
     return new AggregateFunctionBuilder({
       ...this.#props,
       aggregateFunctionNode: AggregateFunctionNode.cloneWithDistinct(
@@ -126,9 +144,10 @@ export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
    * ```
    */
   orderBy<OE extends OrderByExpression<DB, TB, {}>>(
+    this: AggregateFunctionBuilder<DB, TB, O, Exclude<M, 'over'>>,
     expr: OE,
     modifiers?: OrderByModifiers,
-  ): AggregateFunctionBuilder<DB, TB, O>
+  ): AggregateFunctionBuilder<DB, TB, O, M | 'orderBy'>
 
   // TODO: remove in v0.29
   /**
@@ -138,24 +157,29 @@ export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
     OE extends
       | OrderByExpression<DB, TB, {}>
       | DirectedOrderByStringReference<DB, TB, {}>,
-  >(exprs: ReadonlyArray<OE>): AggregateFunctionBuilder<DB, TB, O>
+  >(
+    this: AggregateFunctionBuilder<DB, TB, O, Exclude<M, 'over'>>,
+    exprs: ReadonlyArray<OE>,
+  ): AggregateFunctionBuilder<DB, TB, O, M | 'orderBy'>
 
   // TODO: remove in v0.29
   /**
    * @deprecated It does ~2.9x more compile-time instantiations compared to a `orderBy(expr, direction)` call.
    */
   orderBy<OE extends DirectedOrderByStringReference<DB, TB, {}>>(
+    this: AggregateFunctionBuilder<DB, TB, O, Exclude<M, 'over'>>,
     expr: OE,
-  ): AggregateFunctionBuilder<DB, TB, O>
+  ): AggregateFunctionBuilder<DB, TB, O, M | 'orderBy'>
 
   // TODO: remove in v0.29
   /**
    * @deprecated Use `orderBy(expr, (ob) => ...)` instead.
    */
   orderBy<OE extends OrderByExpression<DB, TB, {}>>(
+    this: AggregateFunctionBuilder<DB, TB, O, Exclude<M, 'over'>>,
     expr: OE,
     modifiers: Expression<any>,
-  ): AggregateFunctionBuilder<DB, TB, O>
+  ): AggregateFunctionBuilder<DB, TB, O, M | 'orderBy'>
 
   orderBy(...args: any[]): any {
     return new AggregateFunctionBuilder({
@@ -167,7 +191,12 @@ export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
     })
   }
 
-  clearOrderBy(): AggregateFunctionBuilder<DB, TB, O> {
+  clearOrderBy(): AggregateFunctionBuilder<
+    DB,
+    TB,
+    O,
+    Exclude<M, 'orderBy'>
+  > {
     return new AggregateFunctionBuilder({
       ...this.#props,
       aggregateFunctionNode: QueryNode.cloneWithoutOrderBy(
@@ -403,8 +432,14 @@ export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
    * ```
    */
   over(
+    this: AggregateFunctionBuilder<
+      DB,
+      TB,
+      O,
+      Exclude<M, 'distinct' | 'orderBy'>
+    >,
     over?: OverBuilderCallback<DB, TB>,
-  ): AggregateFunctionBuilder<DB, TB, O> {
+  ): AggregateFunctionBuilder<DB, TB, O, M | 'over'> {
     const builder = createOverBuilder()
 
     return new AggregateFunctionBuilder({
@@ -430,7 +465,7 @@ export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
    * This method call doesn't change the SQL in any way. This methods simply
    * returns a copy of this `AggregateFunctionBuilder` with a new output type.
    */
-  $castTo<C>(): AggregateFunctionBuilder<DB, TB, C> {
+  $castTo<C>(): AggregateFunctionBuilder<DB, TB, C, M> {
     return new AggregateFunctionBuilder(this.#props)
   }
 
@@ -443,7 +478,7 @@ export class AggregateFunctionBuilder<DB, TB extends keyof DB, O = unknown>
    * This method call doesn't change the SQL in any way. This methods simply
    * returns a copy of `this` with a new output type.
    */
-  $notNull(): AggregateFunctionBuilder<DB, TB, Exclude<O, null>> {
+  $notNull(): AggregateFunctionBuilder<DB, TB, Exclude<O, null>, M> {
     return new AggregateFunctionBuilder(this.#props)
   }
 
@@ -461,11 +496,11 @@ export class AliasedAggregateFunctionBuilder<
   O = unknown,
   A extends string = never,
 > implements AliasedExpression<O, A> {
-  readonly #aggregateFunctionBuilder: AggregateFunctionBuilder<DB, TB, O>
+  readonly #aggregateFunctionBuilder: AggregateFunctionBuilder<DB, TB, O, any>
   readonly #alias: A
 
   constructor(
-    aggregateFunctionBuilder: AggregateFunctionBuilder<DB, TB, O>,
+    aggregateFunctionBuilder: AggregateFunctionBuilder<DB, TB, O, any>,
     alias: A,
   ) {
     this.#aggregateFunctionBuilder = aggregateFunctionBuilder

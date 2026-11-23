@@ -445,12 +445,13 @@ export interface FunctionModule<DB, TB extends keyof DB> {
    */
   countAll<O extends number | string | bigint, T extends TB = TB>(
     table: T,
-  ): AggregateFunctionBuilder<DB, TB, O>
+  ): AggregateFunctionBuilder<DB, TB, O, 'noDistinct'>
 
   countAll<O extends number | string | bigint>(): AggregateFunctionBuilder<
     DB,
     TB,
-    O
+    O,
+    'noDistinct'
   >
 
   /**

@@ -1158,3 +1158,17 @@ async function testIssue764(db: Kysely<DB764>) {
     ])
     .execute()
 }
+
+function testInvalidModifierCombinations(db: Kysely<Database>) {
+  expectError(db.selectFrom('person').select((eb) => eb.fn.count('age').distinct().over().as('c')))
+  expectError(db.selectFrom('person').select((eb) => eb.fn.count('age').over().distinct().as('c')))
+  expectError(db.selectFrom('person').select((eb) => eb.fn.sum('age').orderBy('age').over().as('s')))
+  expectError(db.selectFrom('person').select((eb) => eb.fn.sum('age').over().orderBy('age').as('s')))
+  expectError(db.selectFrom('person').select((eb) => eb.fn.countAll().distinct().as('c')))
+  expectError(db.selectFrom('person').select((eb) => eb.fn.countAll('person').distinct().as('c')))
+
+  // clearOrderBy restores ability to call over()
+  db.selectFrom('person').select((eb) =>
+    eb.fn.sum('age').orderBy('age').clearOrderBy().over().as('s'),
+  )
+}
